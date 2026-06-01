@@ -1,0 +1,36 @@
+# ======================
+# ActionNote AI .gitignore
+# ======================
+
+# 환경변수 / 보안 파일 (절대 Git에 올리지 마세요)
+.env
+backend/.env
+backend/note_venv/
+credentials.json
+token.json
+backend/credentials.json
+backend/token.json
+# Node.js
+node_modules/
+dist/
+.pnpm-store/
+
+# Python / FastAPI
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyc
+venv/
+.venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/settings.json
+.idea/
+*.swp
