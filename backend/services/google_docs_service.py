@@ -183,9 +183,9 @@ def build_google_docs_text(result: AnalysisResult) -> str:
             lines.append(f"   - 원문 근거: {item.evidence_text}")
     lines.append("")
 
-    lines.append("[액션 아이템]")
+    lines.append("[실행 항목]")
     if not result.action_items:
-        lines.append("- 액션 아이템이 없습니다.")
+        lines.append("- 실행 항목이 없습니다.")
     else:
         for index, item in enumerate(result.action_items, start=1):
             lines.append(f"{index}. {item.task}")
