@@ -1,91 +1,109 @@
-# =====================================================================
 # backend/services/file_parser.py
-# 역할: 업로드된 파일에서 텍스트를 추출하는 서비스 레이어
-# - 지원 형식: TXT, DOCX, PDF, XLSX
-# - 추출된 텍스트는 ai_service.analyze_text()에 전달됨
-# =====================================================================
-
+# 역할:
+# - 업로드된 파일을 확장자별로 읽어 텍스트로 변환합니다.
+# - 파일 입력도 최종적으로 analyze_text(text) 함수에 전달할 수 있도록 문자열로 정규화합니다.
+# - 1차 구현 순서는 TXT → DOCX → PDF → XLSX입니다.
+import fitz 
+import openpyxl
+from io import BytesIO
+from docx import Document
 from fastapi import UploadFile
 
 
-async def extract_text(file: UploadFile) -> str:
-    """
-    역할: 업로드된 파일 형식을 감지하고 적절한 파서를 호출해 텍스트를 반환한다.
-    - 매개변수 file: FastAPI UploadFile 객체
-    - 반환값: 파일에서 추출된 순수 텍스트 문자열
-    - 지원: .txt / .docx / .pdf / .xlsx
-    """
-    filename = file.filename or ""
-    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
-
-    if ext == "txt":
-        return await _parse_txt(file)
-    elif ext == "docx":
-        return await _parse_docx(file)
-    elif ext == "pdf":
-        return await _parse_pdf(file)
-    elif ext == "xlsx":
-        return await _parse_xlsx(file)
-    else:
-        raise ValueError(f"지원하지 않는 파일 형식입니다: .{ext}")
+# 이 함수는 업로드된 파일명에서 확장자를 추출합니다.
+# 확장자에 따라 TXT, DOCX, PDF, XLSX 파서를 선택하기 위해 사용합니다.
+def get_file_extension(filename: str) -> str:
+    return filename.lower().split(".")[-1]
 
 
-async def _parse_txt(file: UploadFile) -> str:
-    """
-    역할: .txt 파일에서 텍스트를 읽어 반환한다.
-    - UTF-8 인코딩 우선 시도, 실패 시 CP949(한국어 Windows 인코딩) 시도
-    """
-    content = await file.read()
+# 이 함수는 TXT 파일에서 텍스트를 추출합니다.
+# UTF-8을 우선 시도하고, 실패하면 CP949로 다시 시도해 한글 윈도우 텍스트 파일도 처리합니다.
+async def parse_txt_file(file: UploadFile) -> str:
+    file_bytes = await file.read()
+
     try:
-        return content.decode("utf-8")
+        return file_bytes.decode("utf-8")
     except UnicodeDecodeError:
-        return content.decode("cp949", errors="ignore")
+        return file_bytes.decode("cp949", errors="ignore")
 
 
-async def _parse_docx(file: UploadFile) -> str:
-    """
-    역할: .docx 파일에서 단락 텍스트를 추출해 반환한다.
-    - TODO: python-docx 라이브러리 설치 후 구현
-    - requirements.txt 에서 python-docx 주석 해제 필요
-    """
-    # TODO: python-docx 로 구현
-    # import io
-    # from docx import Document
-    # content = await file.read()
-    # doc = Document(io.BytesIO(content))
-    # return "\n".join(para.text for para in doc.paragraphs if para.text.strip())
-    raise NotImplementedError("DOCX 파싱은 아직 구현되지 않았습니다. TODO를 참고하세요.")
+# 이 함수는 DOCX 파일에서 문단 텍스트를 추출합니다.
+# 일반적인 회의록/업무 메모 문서의 paragraph 내용을 문자열로 합칩니다.
+async def parse_docx_file(file: UploadFile) -> str:
+    file_bytes = await file.read()
+    document = Document(BytesIO(file_bytes))
+
+    paragraphs = []
+
+    for paragraph in document.paragraphs:
+        text = paragraph.text.strip()
+        if text:
+            paragraphs.append(text)
+
+    return "\n".join(paragraphs)
 
 
-async def _parse_pdf(file: UploadFile) -> str:
-    """
-    역할: .pdf 파일에서 페이지별 텍스트를 추출해 반환한다.
-    - TODO: PyPDF2 또는 pdfminer 라이브러리 설치 후 구현
-    - 표가 포함된 PDF는 순서가 섞일 수 있으므로 사용자 검토 필요
-    """
-    # TODO: PyPDF2 로 구현
-    # import io
-    # from PyPDF2 import PdfReader
-    # content = await file.read()
-    # reader = PdfReader(io.BytesIO(content))
-    # return "\n".join(page.extract_text() or "" for page in reader.pages)
-    raise NotImplementedError("PDF 파싱은 아직 구현되지 않았습니다. TODO를 참고하세요.")
+# 이 함수는 PDF 파일에서 페이지별 텍스트를 추출합니다.
+# 텍스트 기반 PDF는 처리 가능하지만, 스캔 이미지 PDF는 OCR이 필요하므로 이번 범위에서는 제외합니다.
+async def parse_pdf_file(file: UploadFile) -> str:
+    file_bytes = await file.read()
+
+    pdf = fitz.open(stream=file_bytes, filetype="pdf")
+    pages = []
+
+    for page_index, page in enumerate(pdf, start=1):
+        page_text = page.get_text().strip()
+
+        if page_text:
+            pages.append(f"[Page {page_index}]\n{page_text}")
+
+    return "\n\n".join(pages)
 
 
-async def _parse_xlsx(file: UploadFile) -> str:
-    """
-    역할: .xlsx 파일의 각 시트를 읽어 셀 값을 텍스트로 변환해 반환한다.
-    - TODO: openpyxl 라이브러리 설치 후 구현
-    - 각 행을 탭으로 구분된 텍스트로 변환
-    """
-    # TODO: openpyxl 로 구현
-    # import io
-    # import openpyxl
-    # content = await file.read()
-    # wb = openpyxl.load_workbook(io.BytesIO(content), read_only=True)
-    # lines = []
-    # for ws in wb.worksheets:
-    #     for row in ws.iter_rows(values_only=True):
-    #         lines.append("\t".join(str(c) for c in row if c is not None))
-    # return "\n".join(lines)
-    raise NotImplementedError("XLSX 파싱은 아직 구현되지 않았습니다. TODO를 참고하세요.")
+# 이 함수는 XLSX 파일에서 모든 시트의 셀 값을 텍스트로 추출합니다.
+# 표 형태 회의록도 AI가 분석할 수 있도록 시트명과 행 단위 텍스트로 변환합니다.
+async def parse_xlsx_file(file: UploadFile) -> str:
+    file_bytes = await file.read()
+    workbook = openpyxl.load_workbook(BytesIO(file_bytes), data_only=True)
+
+    lines = []
+
+    for sheet_name in workbook.sheetnames:
+        sheet = workbook[sheet_name]
+        lines.append(f"[Sheet: {sheet_name}]")
+
+        for row in sheet.iter_rows(values_only=True):
+            values = [
+                str(cell).strip()
+                for cell in row
+                if cell is not None and str(cell).strip()
+            ]
+
+            if values:
+                lines.append(" | ".join(values))
+
+        lines.append("")
+
+    return "\n".join(lines).strip()
+
+
+# 이 함수는 업로드된 파일의 확장자를 보고 알맞은 파서를 실행합니다.
+# 현재 1차로 TXT를 먼저 연결하고, 이후 DOCX/PDF/XLSX를 순서대로 추가합니다.
+async def parse_uploaded_file(file: UploadFile) -> str:
+    extension = get_file_extension(file.filename or "")
+
+    if extension == "txt":
+        text = await parse_txt_file(file)
+    elif extension == "docx":
+        text = await parse_docx_file(file)
+    elif extension == "pdf":
+        text = await parse_pdf_file(file)
+    elif extension == "xlsx":
+        text = await parse_xlsx_file(file)
+    else:
+        raise ValueError(f"지원하지 않는 파일 형식입니다: .{extension}")
+
+    if not text or not text.strip():
+        raise ValueError("파일에서 텍스트를 추출하지 못했습니다.")
+
+    return text

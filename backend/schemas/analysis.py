@@ -16,7 +16,7 @@ class Decision(BaseModel):
     evidence_text: str           # 원문 근거 (AI가 발췌한 원본 텍스트)
 
 
-# ── 액션 아이템 ───────────────────────────────────────────────────────
+# ── 실행 항목 ───────────────────────────────────────────────────────
 class ActionItem(BaseModel):
     """회의에서 도출된 할 일 항목"""
     task: str                    # 해야 할 일
@@ -39,7 +39,7 @@ class AnalysisResult(BaseModel):
     """AI 분석의 최종 결과 구조 — 프론트의 AnalysisResult 타입과 동일"""
     summary: str                      # 전체 요약
     decisions: list[Decision]         # 결정사항 목록
-    action_items: list[ActionItem]    # 액션 아이템 목록
+    action_items: list[ActionItem]    # 실행 항목 목록
     risks: list[Risk]                 # 리스크 목록
     missing_info: list[str]           # 누락 정보 (문자열 목록)
 

@@ -11,7 +11,7 @@ export interface Decision {
   evidence_text: string;  // 원문 근거
 }
 
-// ── 액션 아이템 ───────────────────────────────────────────────────────
+// ── 실행 항목 ───────────────────────────────────────────────────────
 export interface ActionItem {
   task: string;               // 해야 할 일
   owner: string | null;       // 담당자 (null 이면 미정)
@@ -73,7 +73,7 @@ export function isUnspecified(value: string | null | undefined): boolean {
  * - App.tsx 의 Stats Cards 섹션에서 사용
  */
 export interface AnalysisMetrics {
-  totalActionItems: number;   // 액션 아이템 수
+  totalActionItems: number;   // 실행 항목 수
   unassignedCount: number;    // 담당자 미정 수
   noDueDateCount: number;     // 마감일 미정 수
   riskCount: number;          // 리스크 수

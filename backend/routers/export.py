@@ -1,28 +1,27 @@
-# =====================================================================
 # backend/routers/export.py
-# 역할: 분석 결과를 외부 서비스로 내보내는 API 엔드포인트를 정의한다.
-# - POST /api/save-google-doc : Google Docs로 저장
-# =====================================================================
+# 역할:
+# - 분석 결과를 외부 서비스로 저장하는 API 엔드포인트를 정의합니다.
+# - 현재는 Google Docs 저장 기능을 제공합니다.
 
-from fastapi import APIRouter, HTTPException
-from schemas.analysis import SaveGoogleDocRequest, SaveGoogleDocResponse
+from fastapi import APIRouter
 from services.google_docs_service import save_to_google_docs
+from schemas.analysis import SaveGoogleDocRequest, SaveGoogleDocResponse
 
-router = APIRouter()
+router = APIRouter(tags=["export"])
 
 
+# 이 함수는 분석 결과를 Google Docs 문서로 저장합니다.
+# title이 비어 있으면 서비스 계층에서 날짜 기반 기본 이름을 생성합니다.
 @router.post("/save-google-doc", response_model=SaveGoogleDocResponse)
-async def save_google_doc_endpoint(request: SaveGoogleDocRequest):
-    """
-    역할: 분석 결과를 Google Docs에 저장하고 생성된 문서 URL을 반환한다.
-    - 요청 바디: { "title": "문서명 (빈 문자열이면 자동 생성)", "result": AnalysisResult }
-    - 응답: { "title": "실제 문서명", "url": "Google Docs URL" }
-    - TODO: google_docs_service 구현 후 실제 동작
-    """
-    try:
-        response = await save_to_google_docs(request.title, request.result)
-        return SaveGoogleDocResponse(**response)
-    except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Google Docs 저장 중 오류: {e}")
+async def save_google_doc_endpoint(
+    request: SaveGoogleDocRequest,
+) -> SaveGoogleDocResponse:
+    saved_doc = await save_to_google_docs(
+        title=request.title,
+        result=request.result,
+    )
+
+    return SaveGoogleDocResponse(
+        title=saved_doc["title"],
+        url=saved_doc["url"],
+    )
